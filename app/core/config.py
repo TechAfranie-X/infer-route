@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     providers_config_path: str = "config/providers.json"
     http_connect_timeout_seconds: float = Field(default=2.0, gt=0)
     http_read_timeout_seconds: float = Field(default=20.0, gt=0)
+    ewma_alpha: float = Field(default=0.2, gt=0, lt=1)
+    provider_failure_threshold_degraded: int = Field(default=2, ge=1)
+    provider_failure_threshold_unhealthy: int = Field(default=3, ge=1)
+    provider_cooldown_seconds: float = Field(default=30.0, ge=0)
+    health_check_interval_seconds: float = Field(default=5.0, gt=0)
 
     @field_validator("log_level", mode="before")
     @classmethod

@@ -2,7 +2,7 @@
 
 InferRoute is an asynchronous LLM inference gateway. Applications send model requests to one gateway instead of calling each provider themselves. The gateway will own routing, provider health, retries, fallback, response caching, token streaming, and latency metrics.
 
-This repository is being built milestone by milestone. The gateway can complete a non-streaming chat request through one configured model endpoint. Routing across multiple providers, caching, streaming, and load tests are still ahead.
+This repository is being built milestone by milestone. The gateway rotates chat requests across configured endpoints and records provider latency, failures, and cooldown. Latency-aware routing, retries, caching, streaming, and load tests are still ahead.
 
 ## What works now
 

@@ -18,6 +18,7 @@ from app.models.requests import ChatCompletionRequest
 from app.models.responses import ChatCompletionResponse
 from app.providers.errors import NonRetryableProviderError, RetryableProviderError
 from app.providers.registry import ProviderRegistry
+from app.routing.health import HealthRegistry
 from app.routing.router import Router
 from app.utils.timing import elapsed_ms, monotonic_ms
 
@@ -25,9 +26,15 @@ logger = logging.getLogger("inferroute.inference")
 
 
 class InferenceService:
-    def __init__(self, registry: ProviderRegistry, router: Router) -> None:
+    def __init__(
+        self,
+        registry: ProviderRegistry,
+        router: Router,
+        health: HealthRegistry,
+    ) -> None:
         self._registry = registry
         self._router = router
+        self._health = health
 
     async def complete(
         self,
@@ -61,6 +68,7 @@ class InferenceService:
         try:
             generation = await provider.generate(request)
         except RetryableProviderError as exc:
+            await self._health.record_failure(provider.config.id)
             logger.warning(
                 "provider failure",
                 extra={
@@ -90,6 +98,7 @@ class InferenceService:
                 request_id=request_id,
             ) from exc
 
+        await self._health.record_success(provider.config.id, generation.latency_ms)
         latency_ms = round(elapsed_ms(started), 2)
         logger.info(
             "inference completed",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
@@ -26,6 +27,7 @@ from app.core.logging import configure_logging, redact_url
 from app.providers.base import LLMProvider
 from app.providers.loading import build_http_providers
 from app.providers.registry import ProviderRegistry
+from app.routing.health import HealthChecker, HealthRegistry
 from app.routing.router import Router
 from app.routing.strategies import RoundRobinStrategy
 from app.services.inference import InferenceService
@@ -75,8 +77,21 @@ def create_app(
             resolved_providers = providers
         app.state.http_client = http_client
         app.state.registry = ProviderRegistry(resolved_providers)
+        app.state.health = HealthRegistry(resolved_settings)
         app.state.router = Router(RoundRobinStrategy())
-        app.state.inference_service = InferenceService(app.state.registry, app.state.router)
+        app.state.inference_service = InferenceService(
+            app.state.registry,
+            app.state.router,
+            app.state.health,
+        )
+        stop_health_checks = asyncio.Event()
+        health_task = asyncio.create_task(
+            HealthChecker(
+                app.state.health,
+                list(resolved_providers),
+                resolved_settings,
+            ).run(stop_health_checks)
+        )
         if await redis_is_reachable(client):
             logger.info(
                 "redis connection established",
@@ -96,6 +111,12 @@ def create_app(
         try:
             yield
         finally:
+            stop_health_checks.set()
+            health_task.cancel()
+            try:
+                await health_task
+            except asyncio.CancelledError:
+                pass
             if http_client is not None:
                 await http_client.aclose()
             await client.aclose()
