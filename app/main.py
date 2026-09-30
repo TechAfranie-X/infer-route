@@ -21,6 +21,7 @@ from app.api.errors import (
 from app.api.middleware import RequestContextMiddleware
 from app.api.routes.health import router as health_router
 from app.api.routes.inference import router as inference_router
+from app.api.routes.metrics import router as metrics_router
 from app.core.config import Settings, get_settings
 from app.core.exceptions import InferRouteError
 from app.core.logging import configure_logging, redact_url
@@ -32,6 +33,7 @@ from app.routing.router import Router
 from app.routing.strategies import LatencyAwareStrategy, RoundRobinStrategy
 from app.services.cache import ResponseCache
 from app.services.inference import InferenceService
+from app.services.metrics import MetricsService
 from app.services.readiness import RedisProbe, redis_is_reachable
 
 logger = logging.getLogger("inferroute.lifecycle")
@@ -84,6 +86,7 @@ def create_app(
         else:
             strategy = LatencyAwareStrategy()
         app.state.router = Router(strategy)
+        app.state.metrics = MetricsService()
         app.state.cache = ResponseCache(
             client,
             enabled=resolved_settings.cache_enabled,
@@ -95,6 +98,7 @@ def create_app(
             app.state.health,
             resolved_settings,
             app.state.cache,
+            app.state.metrics,
         )
         stop_health_checks = asyncio.Event()
         health_task = asyncio.create_task(
@@ -147,6 +151,7 @@ def create_app(
     app.add_exception_handler(Exception, unhandled_error_handler)
     app.include_router(health_router)
     app.include_router(inference_router)
+    app.include_router(metrics_router)
     return app
 
 

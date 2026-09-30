@@ -21,7 +21,7 @@ class RoutingStrategy(Protocol):
 class Router:
     def __init__(self, strategy: RoutingStrategy) -> None:
         self._strategy = strategy
-        self.strategy_name = strategy.__class__.__name__
+        self.strategy_name = getattr(strategy, "name", strategy.__class__.__name__)
 
     async def candidates(
         self,

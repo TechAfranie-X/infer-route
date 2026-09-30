@@ -15,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "redis>=5.2",
     "httpx>=0.28",
+    "prometheus-client>=0.21",
 ]
 
 [project.optional-dependencies]

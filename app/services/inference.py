@@ -28,6 +28,7 @@ from app.routing.health import HealthRegistry
 from app.routing.router import Router
 from app.services.backoff import backoff_seconds
 from app.services.cache import CacheHeader, ResponseCache
+from app.services.metrics import MetricsService
 from app.services.sse import sse_done, sse_error, sse_token
 from app.utils.timing import elapsed_ms, monotonic_ms
 
@@ -54,12 +55,14 @@ class InferenceService:
         health: HealthRegistry,
         settings: Settings,
         cache: ResponseCache,
+        metrics: MetricsService,
     ) -> None:
         self._registry = registry
         self._router = router
         self._health = health
         self._settings = settings
         self._cache = cache
+        self._metrics = metrics
 
     async def complete(
         self,
@@ -74,11 +77,17 @@ class InferenceService:
 
         started = monotonic_ms()
         lookup = await self._cache.lookup(request)
+        self._record_cache(lookup.header)
         if lookup.header == "HIT" and lookup.entry is not None:
             latency_ms = round(elapsed_ms(started), 2)
             logger.info(
                 "cache hit",
                 extra={"event": "cache_hit", "request_id": request_id, "latency_ms": latency_ms},
+            )
+            self._record_request(
+                status="success",
+                provider=lookup.entry.provider,
+                latency_ms=latency_ms,
             )
             return ChatCompletionResponse(
                 id=request_id,
@@ -106,6 +115,7 @@ class InferenceService:
 
         for index, provider in enumerate(candidates):
             if index > 0:
+                self._metrics.fallbacks.labels(provider=provider.config.id).inc()
                 logger.warning(
                     "fallback started",
                     extra={
@@ -141,6 +151,11 @@ class InferenceService:
                     saw_timeout = saw_timeout or timeout
                     saw_other_retryable = saw_other_retryable or not timeout
                     await self._health.record_failure(provider.config.id)
+                    self._metrics.provider_errors.labels(provider=provider.config.id).inc()
+                    self._metrics.provider_requests.labels(
+                        provider=provider.config.id,
+                        status="error",
+                    ).inc()
                     logger.warning(
                         "provider failure",
                         extra={
@@ -153,6 +168,7 @@ class InferenceService:
                     )
                     if local_try < provider.config.max_retries and not self._over_budget(started):
                         local_try += 1
+                        self._metrics.retries.labels(provider=provider.config.id).inc()
                         logger.info(
                             "provider retry",
                             extra={
@@ -167,6 +183,10 @@ class InferenceService:
                     break
                 else:
                     await self._health.record_success(provider.config.id, generation.latency_ms)
+                    self._metrics.provider_requests.labels(
+                        provider=provider.config.id,
+                        status="success",
+                    ).inc()
                     response = self._success(
                         request,
                         request_id,
@@ -186,11 +206,18 @@ class InferenceService:
             if self._over_budget(started):
                 break
 
+        latency_ms = elapsed_ms(started)
         if saw_timeout and not saw_other_retryable:
+            self._record_request(
+                status="error",
+                provider=initial_provider,
+                latency_ms=latency_ms,
+            )
             raise ProviderTimeoutError(
                 "The model endpoint timed out.",
                 request_id=request_id,
             )
+        self._record_request(status="error", provider=initial_provider, latency_ms=latency_ms)
         raise AllProvidersUnavailableError(
             "No model endpoint could successfully complete the request.",
             request_id=request_id,
@@ -210,6 +237,7 @@ class InferenceService:
 
         started = monotonic_ms()
         lookup = await self._cache.lookup(request)
+        self._record_cache(lookup.header)
         health = await self._health.snapshots()
         candidates = await self._router.candidates(self._registry.enabled(), health)
         if not candidates:
@@ -225,6 +253,7 @@ class InferenceService:
 
         for index, provider in enumerate(candidates):
             if index > 0:
+                self._metrics.fallbacks.labels(provider=provider.config.id).inc()
                 logger.warning(
                     "fallback started",
                     extra={
@@ -259,6 +288,11 @@ class InferenceService:
                     saw_timeout = saw_timeout or timeout
                     saw_other_retryable = saw_other_retryable or not timeout
                     await self._health.record_failure(provider.config.id)
+                    self._metrics.provider_errors.labels(provider=provider.config.id).inc()
+                    self._metrics.provider_requests.labels(
+                        provider=provider.config.id,
+                        status="error",
+                    ).inc()
                     logger.warning(
                         "provider failure",
                         extra={
@@ -270,6 +304,7 @@ class InferenceService:
                     )
                     if local_try < provider.config.max_retries and not self._over_budget(started):
                         local_try += 1
+                        self._metrics.retries.labels(provider=provider.config.id).inc()
                         logger.info(
                             "provider retry",
                             extra={
@@ -292,6 +327,11 @@ class InferenceService:
                         cache_status=lookup.header,
                         initial_provider=initial_provider,
                     )
+                    self._metrics.ttft.labels(provider=provider.config.id).observe(ttft_ms / 1000)
+                    self._metrics.provider_requests.labels(
+                        provider=provider.config.id,
+                        status="success",
+                    ).inc()
                     logger.info(
                         "stream started",
                         extra={
@@ -313,8 +353,11 @@ class InferenceService:
             if self._over_budget(started):
                 break
 
+        latency_ms = elapsed_ms(started)
         if saw_timeout and not saw_other_retryable:
+            self._record_request(status="error", provider=initial_provider, latency_ms=latency_ms)
             raise ProviderTimeoutError("The model endpoint timed out.", request_id=request_id)
+        self._record_request(status="error", provider=initial_provider, latency_ms=latency_ms)
         raise AllProvidersUnavailableError(
             "No model endpoint could successfully complete the request.",
             request_id=request_id,
@@ -336,6 +379,8 @@ class InferenceService:
                 yield sse_token(token)
         except (TimeoutError, RetryableProviderError) as exc:
             await self._health.record_failure(provider_id)
+            self._metrics.provider_errors.labels(provider=provider_id).inc()
+            self._record_request(status="error", provider=provider_id, latency_ms=ttft_ms)
             logger.warning(
                 "stream failed",
                 extra={
@@ -352,6 +397,7 @@ class InferenceService:
 
         duration_ms = round(elapsed_ms(started), 2)
         await self._health.record_success(provider_id, ttft_ms)
+        self._record_request(status="success", provider=provider_id, latency_ms=ttft_ms)
         logger.info(
             "stream completed",
             extra={
@@ -391,6 +437,7 @@ class InferenceService:
                 "latency_ms": latency_ms,
             },
         )
+        self._record_request(status="success", provider=provider.config.id, latency_ms=latency_ms)
         return ChatCompletionResponse(
             id=request_id,
             model=request.model,
@@ -401,6 +448,18 @@ class InferenceService:
             fallback_used=fallback_used,
             cache_status=cache_status,
             content=generation.content,
+        )
+
+    def _record_cache(self, header: CacheHeader) -> None:
+        if header == "HIT":
+            self._metrics.cache_hits.inc()
+        elif header == "MISS":
+            self._metrics.cache_misses.inc()
+
+    def _record_request(self, *, status: str, provider: str, latency_ms: float) -> None:
+        self._metrics.requests.labels(status=status, strategy=self._router.strategy_name).inc()
+        self._metrics.request_duration.labels(provider=provider, status=status).observe(
+            max(latency_ms, 0) / 1000
         )
 
     def _over_budget(self, started: float) -> bool:

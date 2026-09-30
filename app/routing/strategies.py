@@ -53,6 +53,8 @@ def latency_score(state: ProviderHealth | None) -> float:
 class RoundRobinStrategy:
     """Rotate the first choice across eligible providers: A, B, C, A, B, C."""
 
+    name = "round_robin"
+
     def __init__(self) -> None:
         self._index = 0
         self._lock = asyncio.Lock()
@@ -75,6 +77,8 @@ class RoundRobinStrategy:
 
 class LatencyAwareStrategy:
     """Prefer lower score, then rotate providers that share the best score."""
+
+    name = "latency_aware"
 
     def __init__(self) -> None:
         self._index = 0
