@@ -86,7 +86,7 @@ class InferenceUser(HttpUser):
                 ttft = response.headers.get("X-InferRoute-TTFT-Ms")
                 if ttft:
                     TTFT_SAMPLES.append(float(ttft))
-                for _chunk in response.iter_bytes():
+                for _line in response.iter_lines():
                     pass
                 if response.status_code >= 400:
                     response.failure(f"HTTP {response.status_code}")
