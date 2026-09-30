@@ -27,6 +27,6 @@ def fake_redis() -> FakeRedis:
 
 @pytest.fixture
 def client(settings: Settings, fake_redis: FakeRedis) -> Iterator[TestClient]:
-    application = create_app(settings=settings, redis_client=fake_redis)
+    application = create_app(settings=settings, redis_client=fake_redis, providers=[])
     with TestClient(application) as test_client:
         yield test_client

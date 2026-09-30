@@ -1,0 +1,12 @@
+[
+  {
+    "id": "provider-a",
+    "name": "Provider A",
+    "base_url": "http://mock-a:8081",
+    "model": "general",
+    "weight": 1.0,
+    "enabled": true,
+    "timeout_seconds": 20,
+    "max_retries": 1
+  }
+]

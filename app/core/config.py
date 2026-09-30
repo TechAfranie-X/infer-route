@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     log_level: LogLevel = "INFO"
     redis_url: str = "redis://localhost:6379/0"
     redis_socket_timeout_seconds: float = Field(default=2.0, gt=0)
+    providers_config_path: str = "config/providers.json"
+    http_connect_timeout_seconds: float = Field(default=2.0, gt=0)
+    http_read_timeout_seconds: float = Field(default=20.0, gt=0)
 
     @field_validator("log_level", mode="before")
     @classmethod

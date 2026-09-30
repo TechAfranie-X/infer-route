@@ -19,6 +19,33 @@ class InferRouteError(Exception):
         self.request_id = request_id
 
 
+class InvalidRequestError(InferRouteError):
+    code = "invalid_request"
+    status_code = 400
+
+
+class ProviderTimeoutError(InferRouteError):
+    code = "provider_timeout"
+    status_code = 504
+
+
+class ProviderResponseError(InferRouteError):
+    code = "provider_error"
+    status_code = 502
+
+
+class AllProvidersUnavailableError(InferRouteError):
+    code = "all_providers_unavailable"
+    status_code = 503
+
+
+class CacheError(InferRouteError):
+    """Logged when Redis cache operations fail. Inference continues without cache."""
+
+    code = "cache_error"
+    status_code = 500
+
+
 def error_payload(
     code: str,
     message: str,

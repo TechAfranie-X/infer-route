@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import InferRouteError, error_payload
@@ -25,6 +26,25 @@ async def inferroute_error_handler(request: Request, exc: InferRouteError) -> JS
     return JSONResponse(
         status_code=exc.status_code,
         content=error_payload(exc.code, exc.message, request_id),
+    )
+
+
+async def validation_error_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None)
+    logger.info(
+        "invalid request",
+        extra={"event": "invalid_request", "request_id": request_id},
+    )
+    return JSONResponse(
+        status_code=400,
+        content=error_payload(
+            "invalid_request",
+            "The request body is invalid.",
+            request_id,
+        ),
     )
 
 

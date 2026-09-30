@@ -35,7 +35,7 @@ def test_health_stays_up_when_redis_is_down(
     settings: Settings,
 ) -> None:
     redis = FakeRedis(healthy=False)
-    application = create_app(settings=settings, redis_client=redis)
+    application = create_app(settings=settings, redis_client=redis, providers=[])
     with TestClient(application) as client:
         response = client.get("/health")
     assert response.status_code == 200
@@ -45,7 +45,11 @@ def test_health_stays_up_when_redis_is_down(
 
 
 def test_ready_fails_when_redis_is_down(settings: Settings) -> None:
-    application = create_app(settings=settings, redis_client=FakeRedis(healthy=False))
+    application = create_app(
+        settings=settings,
+        redis_client=FakeRedis(healthy=False),
+        providers=[],
+    )
     with TestClient(application) as client:
         response = client.get("/ready")
     assert response.status_code == 503
@@ -53,7 +57,7 @@ def test_ready_fails_when_redis_is_down(settings: Settings) -> None:
 
 
 def test_known_gateway_errors_keep_their_code(settings: Settings) -> None:
-    application = create_app(settings=settings, redis_client=FakeRedis())
+    application = create_app(settings=settings, redis_client=FakeRedis(), providers=[])
 
     @application.get("/_test/gateway-error")
     async def gateway_error() -> None:
@@ -68,7 +72,7 @@ def test_known_gateway_errors_keep_their_code(settings: Settings) -> None:
 
 
 def test_request_validation_is_not_reported_as_an_internal_error(settings: Settings) -> None:
-    application = create_app(settings=settings, redis_client=FakeRedis())
+    application = create_app(settings=settings, redis_client=FakeRedis(), providers=[])
 
     @application.get("/_test/needs-int")
     async def needs_int(n: int) -> dict[str, int]:
@@ -77,11 +81,12 @@ def test_request_validation_is_not_reported_as_an_internal_error(settings: Setti
     with TestClient(application) as client:
         response = client.get("/_test/needs-int", params={"n": "abc"})
 
-    assert response.status_code == 422
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
 
 
 def test_unhandled_errors_hide_internal_detail(settings: Settings) -> None:
-    application = create_app(settings=settings, redis_client=FakeRedis())
+    application = create_app(settings=settings, redis_client=FakeRedis(), providers=[])
 
     @application.get("/_test/boom")
     async def boom() -> None:
@@ -99,7 +104,7 @@ def test_unhandled_errors_hide_internal_detail(settings: Settings) -> None:
 
 def test_lifespan_closes_redis_client(settings: Settings) -> None:
     redis = FakeRedis()
-    application = create_app(settings=settings, redis_client=redis)
+    application = create_app(settings=settings, redis_client=redis, providers=[])
     with TestClient(application):
         assert redis.pings >= 1
     assert redis.closed is True

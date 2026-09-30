@@ -11,6 +11,7 @@ RUN useradd --create-home --uid 10001 inferroute
 
 COPY pyproject.toml README.md ./
 COPY app ./app
+COPY config ./config
 
 RUN pip install --no-cache-dir .
 
