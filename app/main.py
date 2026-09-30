@@ -29,7 +29,7 @@ from app.providers.loading import build_http_providers
 from app.providers.registry import ProviderRegistry
 from app.routing.health import HealthChecker, HealthRegistry
 from app.routing.router import Router
-from app.routing.strategies import RoundRobinStrategy
+from app.routing.strategies import LatencyAwareStrategy, RoundRobinStrategy
 from app.services.inference import InferenceService
 from app.services.readiness import RedisProbe, redis_is_reachable
 
@@ -78,7 +78,11 @@ def create_app(
         app.state.http_client = http_client
         app.state.registry = ProviderRegistry(resolved_providers)
         app.state.health = HealthRegistry(resolved_settings)
-        app.state.router = Router(RoundRobinStrategy())
+        if resolved_settings.routing_strategy == "round_robin":
+            strategy: RoundRobinStrategy | LatencyAwareStrategy = RoundRobinStrategy()
+        else:
+            strategy = LatencyAwareStrategy()
+        app.state.router = Router(strategy)
         app.state.inference_service = InferenceService(
             app.state.registry,
             app.state.router,

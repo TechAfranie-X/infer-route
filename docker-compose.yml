@@ -92,6 +92,11 @@ services:
       PROVIDERS_CONFIG_PATH: config/providers.json
       HTTP_CONNECT_TIMEOUT_SECONDS: "2"
       HTTP_READ_TIMEOUT_SECONDS: "20"
+      ROUTING_STRATEGY: latency_aware
+      EWMA_ALPHA: "0.2"
+      PROVIDER_FAILURE_THRESHOLD_DEGRADED: "2"
+      PROVIDER_FAILURE_THRESHOLD_UNHEALTHY: "3"
+      PROVIDER_COOLDOWN_SECONDS: "30"
     depends_on:
       redis:
         condition: service_healthy

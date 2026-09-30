@@ -17,6 +17,7 @@ def settings() -> Settings:
         app_env="test",
         log_level="WARNING",
         redis_url="redis://localhost:6379/0",
+        routing_strategy="round_robin",
     )
 
 

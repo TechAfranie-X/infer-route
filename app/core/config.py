@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["development", "test", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+RoutingStrategyName = Literal["round_robin", "latency_aware"]
 
 
 class Settings(BaseSettings):
@@ -37,6 +38,7 @@ class Settings(BaseSettings):
     provider_failure_threshold_unhealthy: int = Field(default=3, ge=1)
     provider_cooldown_seconds: float = Field(default=30.0, ge=0)
     health_check_interval_seconds: float = Field(default=5.0, gt=0)
+    routing_strategy: RoutingStrategyName = "latency_aware"
 
     @field_validator("log_level", mode="before")
     @classmethod

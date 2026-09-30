@@ -26,7 +26,7 @@ async def test_round_robin_rotates_the_first_candidate() -> None:
     router = Router(RoundRobinStrategy())
     firsts = []
     for _ in range(6):
-        ordered = await router.candidates(providers)
+        ordered = await router.candidates(providers, {})
         firsts.append(ordered[0].config.id)
     assert firsts == [
         "provider-a",
@@ -42,8 +42,8 @@ async def test_round_robin_rotates_the_first_candidate() -> None:
 async def test_round_robin_keeps_the_remaining_providers_as_later_candidates() -> None:
     providers = [_provider("provider-a"), _provider("provider-b"), _provider("provider-c")]
     router = Router(RoundRobinStrategy())
-    await router.candidates(providers)
-    ordered = await router.candidates(providers)
+    await router.candidates(providers, {})
+    ordered = await router.candidates(providers, {})
     assert [provider.config.id for provider in ordered] == [
         "provider-b",
         "provider-c",

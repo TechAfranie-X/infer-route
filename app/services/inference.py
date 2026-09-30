@@ -48,7 +48,8 @@ class InferenceService:
             )
 
         started = monotonic_ms()
-        candidates = await self._router.candidates(self._registry.enabled())
+        health = await self._health.snapshots()
+        candidates = await self._router.candidates(self._registry.enabled(), health)
         if not candidates:
             raise AllProvidersUnavailableError(
                 "No model endpoint could successfully complete the request.",
@@ -62,7 +63,7 @@ class InferenceService:
                 "event": "provider_selected",
                 "request_id": request_id,
                 "provider": provider.config.id,
-                "routing_strategy": "round_robin",
+                "routing_strategy": self._router.strategy_name,
             },
         )
         try:
