@@ -32,6 +32,52 @@ services:
       timeout: 3s
       retries: 10
 
+  mock-b:
+    build: .
+    command: ["python", "-m", "app.mock"]
+    environment:
+      MOCK_PROVIDER_ID: provider-b
+      MOCK_LATENCY_MS: "300"
+      MOCK_FAILURE_RATE: "0.01"
+      HOST: 0.0.0.0
+      MOCK_PORT: "8082"
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082/health')",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-c:
+    build: .
+    command: ["python", "-m", "app.mock"]
+    environment:
+      MOCK_PROVIDER_ID: provider-c
+      MOCK_LATENCY_MS: "100"
+      MOCK_FAILURE_RATE: "0.10"
+      HOST: 0.0.0.0
+      MOCK_PORT: "8083"
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8083/health')",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   inferroute:
     build: .
     ports:
@@ -50,4 +96,8 @@ services:
       redis:
         condition: service_healthy
       mock-a:
+        condition: service_healthy
+      mock-b:
+        condition: service_healthy
+      mock-c:
         condition: service_healthy

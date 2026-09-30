@@ -8,5 +8,25 @@
     "enabled": true,
     "timeout_seconds": 20,
     "max_retries": 1
+  },
+  {
+    "id": "provider-b",
+    "name": "Provider B",
+    "base_url": "http://mock-b:8082",
+    "model": "general",
+    "weight": 1.0,
+    "enabled": true,
+    "timeout_seconds": 20,
+    "max_retries": 1
+  },
+  {
+    "id": "provider-c",
+    "name": "Provider C",
+    "base_url": "http://mock-c:8083",
+    "model": "general",
+    "weight": 1.0,
+    "enabled": true,
+    "timeout_seconds": 20,
+    "max_retries": 1
   }
 ]

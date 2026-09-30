@@ -59,6 +59,35 @@ def test_completion_returns_the_mock_provider_response(
     assert provider.calls == 1
 
 
+def test_repeated_requests_rotate_across_providers(settings: Settings) -> None:
+    providers = [
+        MockProvider(
+            ProviderConfig(
+                id=provider_id,
+                name=provider_id,
+                base_url="http://mock",
+                model="general",
+            ),
+            content=provider_id,
+        )
+        for provider_id in ("provider-a", "provider-b", "provider-c")
+    ]
+    application = create_app(settings=settings, redis_client=FakeRedis(), providers=providers)
+    payload = {"messages": [{"role": "user", "content": "Hello"}]}
+    with TestClient(application) as client:
+        chosen = [
+            client.post("/v1/chat/completions", json=payload).json()["provider"] for _ in range(6)
+        ]
+    assert chosen == [
+        "provider-a",
+        "provider-b",
+        "provider-c",
+        "provider-a",
+        "provider-b",
+        "provider-c",
+    ]
+
+
 def test_unknown_message_role_is_rejected(gateway: tuple[TestClient, MockProvider]) -> None:
     client, provider = gateway
     response = client.post(

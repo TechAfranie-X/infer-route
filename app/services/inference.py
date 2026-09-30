@@ -1,7 +1,7 @@
 """Inference orchestration.
 
-Milestone 2 calls the single configured provider. Later milestones insert routing,
-health, retries, fallback, and caching around this same service.
+The router chooses the provider order. This milestone uses the first candidate.
+Retries, fallback, and caching are added around the same loop later.
 """
 
 from __future__ import annotations
@@ -18,14 +18,16 @@ from app.models.requests import ChatCompletionRequest
 from app.models.responses import ChatCompletionResponse
 from app.providers.errors import NonRetryableProviderError, RetryableProviderError
 from app.providers.registry import ProviderRegistry
+from app.routing.router import Router
 from app.utils.timing import elapsed_ms, monotonic_ms
 
 logger = logging.getLogger("inferroute.inference")
 
 
 class InferenceService:
-    def __init__(self, registry: ProviderRegistry) -> None:
+    def __init__(self, registry: ProviderRegistry, router: Router) -> None:
         self._registry = registry
+        self._router = router
 
     async def complete(
         self,
@@ -39,21 +41,21 @@ class InferenceService:
             )
 
         started = monotonic_ms()
-        providers = self._registry.enabled()
-        if not providers:
+        candidates = await self._router.candidates(self._registry.enabled())
+        if not candidates:
             raise AllProvidersUnavailableError(
                 "No model endpoint could successfully complete the request.",
                 request_id=request_id,
             )
 
-        provider = providers[0]
+        provider = candidates[0]
         logger.info(
             "provider selected",
             extra={
                 "event": "provider_selected",
                 "request_id": request_id,
                 "provider": provider.config.id,
-                "routing_strategy": "single",
+                "routing_strategy": "round_robin",
             },
         )
         try:

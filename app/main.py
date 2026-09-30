@@ -26,6 +26,8 @@ from app.core.logging import configure_logging, redact_url
 from app.providers.base import LLMProvider
 from app.providers.loading import build_http_providers
 from app.providers.registry import ProviderRegistry
+from app.routing.router import Router
+from app.routing.strategies import RoundRobinStrategy
 from app.services.inference import InferenceService
 from app.services.readiness import RedisProbe, redis_is_reachable
 
@@ -73,7 +75,8 @@ def create_app(
             resolved_providers = providers
         app.state.http_client = http_client
         app.state.registry = ProviderRegistry(resolved_providers)
-        app.state.inference_service = InferenceService(app.state.registry)
+        app.state.router = Router(RoundRobinStrategy())
+        app.state.inference_service = InferenceService(app.state.registry, app.state.router)
         if await redis_is_reachable(client):
             logger.info(
                 "redis connection established",

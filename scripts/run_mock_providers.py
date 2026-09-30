@@ -13,6 +13,8 @@ import sys
 def main() -> None:
     providers = [
         ("provider-a", "8081", "150", "0.02"),
+        ("provider-b", "8082", "300", "0.01"),
+        ("provider-c", "8083", "100", "0.10"),
     ]
     processes: list[subprocess.Popen[bytes]] = []
     try:
