@@ -4,6 +4,7 @@ import pytest
 
 from app.models.provider import ProviderConfig
 from app.providers.mock_provider import MockProvider
+from app.routing.health import HealthStatus, ProviderHealth
 from app.routing.router import Router
 from app.routing.strategies import RoundRobinStrategy
 
@@ -49,3 +50,13 @@ async def test_round_robin_keeps_the_remaining_providers_as_later_candidates() -
         "provider-c",
         "provider-a",
     ]
+
+
+@pytest.mark.asyncio
+async def test_round_robin_skips_unhealthy_providers() -> None:
+    providers = [_provider("provider-a"), _provider("provider-b")]
+    health = {
+        "provider-a": ProviderHealth(status=HealthStatus.UNHEALTHY, has_latency_sample=True),
+    }
+    ordered = await Router(RoundRobinStrategy()).candidates(providers, health)
+    assert [provider.config.id for provider in ordered] == ["provider-b"]
