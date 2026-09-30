@@ -12,7 +12,13 @@ from tests.fakes import FakeRedis
 
 def test_repeated_failures_are_visible_on_the_health_endpoint(settings: Settings) -> None:
     provider = MockProvider(
-        ProviderConfig(id="provider-a", name="A", base_url="http://mock", model="general"),
+        ProviderConfig(
+            id="provider-a",
+            name="A",
+            base_url="http://mock",
+            model="general",
+            max_retries=0,
+        ),
         content="ok",
         latency_ms=0,
     )
@@ -38,7 +44,13 @@ def test_repeated_failures_are_visible_on_the_health_endpoint(settings: Settings
 
 def test_a_success_after_failures_returns_the_provider_to_healthy(settings: Settings) -> None:
     provider = MockProvider(
-        ProviderConfig(id="provider-a", name="A", base_url="http://mock", model="general"),
+        ProviderConfig(
+            id="provider-a",
+            name="A",
+            base_url="http://mock",
+            model="general",
+            max_retries=0,
+        ),
         content="ok",
     )
     provider.error = RetryableProviderError("down", provider_id="provider-a", status_code=500)

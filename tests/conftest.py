@@ -18,6 +18,8 @@ def settings() -> Settings:
         log_level="WARNING",
         redis_url="redis://localhost:6379/0",
         routing_strategy="round_robin",
+        retry_base_delay_seconds=0,
+        retry_jitter_seconds=0,
     )
 
 

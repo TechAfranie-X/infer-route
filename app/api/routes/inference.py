@@ -16,6 +16,7 @@ def completion_headers(result: ChatCompletionResponse, *, cache_status: str) -> 
         "X-InferRoute-Cache": cache_status,
         "X-InferRoute-Attempts": str(result.attempts),
         "X-InferRoute-Latency-Ms": f"{result.latency_ms:.2f}",
+        "X-InferRoute-Fallback": "true" if result.fallback_used else "false",
     }
 
 

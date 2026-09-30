@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     provider_cooldown_seconds: float = Field(default=30.0, ge=0)
     health_check_interval_seconds: float = Field(default=5.0, gt=0)
     routing_strategy: RoutingStrategyName = "latency_aware"
+    retry_base_delay_seconds: float = Field(default=0.05, ge=0)
+    retry_jitter_seconds: float = Field(default=0.05, ge=0)
+    inference_timeout_seconds: float = Field(default=30.0, gt=0)
 
     @field_validator("log_level", mode="before")
     @classmethod

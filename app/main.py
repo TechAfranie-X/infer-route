@@ -87,6 +87,7 @@ def create_app(
             app.state.registry,
             app.state.router,
             app.state.health,
+            resolved_settings,
         )
         stop_health_checks = asyncio.Event()
         health_task = asyncio.create_task(

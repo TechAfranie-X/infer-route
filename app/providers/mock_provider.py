@@ -12,7 +12,11 @@ from collections.abc import AsyncIterator
 from app.models.provider import ProviderConfig
 from app.models.requests import ChatCompletionRequest
 from app.providers.base import GenerationResult, LLMProvider
-from app.providers.errors import ProviderCallError, StreamInterruptedError
+from app.providers.errors import (
+    ProviderCallError,
+    RetryableProviderError,
+    StreamInterruptedError,
+)
 from app.utils.timing import elapsed_ms, monotonic_ms
 
 
@@ -28,6 +32,7 @@ class MockProvider(LLMProvider):
         self.content = content
         self.latency_ms = latency_ms
         self.error: ProviderCallError | None = None
+        self.fail_times = 0
         self.stream_error_after: int | None = None
         self.calls = 0
         self.healthy = True
@@ -39,6 +44,13 @@ class MockProvider(LLMProvider):
         started = monotonic_ms()
         if self.latency_ms > 0:
             await asyncio.sleep(self.latency_ms / 1000)
+        if self.fail_times > 0:
+            self.fail_times -= 1
+            raise RetryableProviderError(
+                "temporary provider failure",
+                provider_id=self.config.id,
+                status_code=500,
+            )
         if self.error is not None:
             raise self.error
         return GenerationResult(

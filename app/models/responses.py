@@ -10,4 +10,5 @@ class ChatCompletionResponse(BaseModel):
     cached: bool
     attempts: int = Field(ge=1)
     latency_ms: float = Field(ge=0)
+    fallback_used: bool = False
     content: str
