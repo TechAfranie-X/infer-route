@@ -30,5 +30,5 @@ async def chat_completions(
     result = await service.complete(body, request_id)
     return JSONResponse(
         content=result.model_dump(mode="json"),
-        headers=completion_headers(result, cache_status="BYPASS"),
+        headers=completion_headers(result, cache_status=result.cache_status),
     )

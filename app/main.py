@@ -30,6 +30,7 @@ from app.providers.registry import ProviderRegistry
 from app.routing.health import HealthChecker, HealthRegistry
 from app.routing.router import Router
 from app.routing.strategies import LatencyAwareStrategy, RoundRobinStrategy
+from app.services.cache import ResponseCache
 from app.services.inference import InferenceService
 from app.services.readiness import RedisProbe, redis_is_reachable
 
@@ -83,11 +84,17 @@ def create_app(
         else:
             strategy = LatencyAwareStrategy()
         app.state.router = Router(strategy)
+        app.state.cache = ResponseCache(
+            client,
+            enabled=resolved_settings.cache_enabled,
+            ttl_seconds=resolved_settings.cache_ttl_seconds,
+        )
         app.state.inference_service = InferenceService(
             app.state.registry,
             app.state.router,
             app.state.health,
             resolved_settings,
+            app.state.cache,
         )
         stop_health_checks = asyncio.Event()
         health_task = asyncio.create_task(

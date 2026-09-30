@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     retry_base_delay_seconds: float = Field(default=0.05, ge=0)
     retry_jitter_seconds: float = Field(default=0.05, ge=0)
     inference_timeout_seconds: float = Field(default=30.0, gt=0)
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = Field(default=300, ge=1)
 
     @field_validator("log_level", mode="before")
     @classmethod

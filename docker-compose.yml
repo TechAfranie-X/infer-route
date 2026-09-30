@@ -97,6 +97,8 @@ services:
       PROVIDER_FAILURE_THRESHOLD_DEGRADED: "2"
       PROVIDER_FAILURE_THRESHOLD_UNHEALTHY: "3"
       PROVIDER_COOLDOWN_SECONDS: "30"
+      CACHE_ENABLED: "true"
+      CACHE_TTL_SECONDS: "300"
     depends_on:
       redis:
         condition: service_healthy

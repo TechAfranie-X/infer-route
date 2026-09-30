@@ -25,6 +25,7 @@ from app.providers.registry import ProviderRegistry
 from app.routing.health import HealthRegistry
 from app.routing.router import Router
 from app.services.backoff import backoff_seconds
+from app.services.cache import CacheHeader, ResponseCache
 from app.utils.timing import elapsed_ms, monotonic_ms
 
 logger = logging.getLogger("inferroute.inference")
@@ -37,11 +38,13 @@ class InferenceService:
         router: Router,
         health: HealthRegistry,
         settings: Settings,
+        cache: ResponseCache,
     ) -> None:
         self._registry = registry
         self._router = router
         self._health = health
         self._settings = settings
+        self._cache = cache
 
     async def complete(
         self,
@@ -55,6 +58,24 @@ class InferenceService:
             )
 
         started = monotonic_ms()
+        lookup = await self._cache.lookup(request)
+        if lookup.header == "HIT" and lookup.entry is not None:
+            latency_ms = round(elapsed_ms(started), 2)
+            logger.info(
+                "cache hit",
+                extra={"event": "cache_hit", "request_id": request_id, "latency_ms": latency_ms},
+            )
+            return ChatCompletionResponse(
+                id=request_id,
+                model=request.model,
+                provider=lookup.entry.provider,
+                cached=True,
+                attempts=1,
+                latency_ms=latency_ms,
+                cache_status="HIT",
+                content=lookup.entry.content,
+            )
+
         health = await self._health.snapshots()
         candidates = await self._router.candidates(self._registry.enabled(), health)
         if not candidates:
@@ -131,7 +152,7 @@ class InferenceService:
                     break
                 else:
                     await self._health.record_success(provider.config.id, generation.latency_ms)
-                    return self._success(
+                    response = self._success(
                         request,
                         request_id,
                         generation,
@@ -139,7 +160,14 @@ class InferenceService:
                         attempts=attempts,
                         started=started,
                         initial_provider=initial_provider,
+                        cache_status=lookup.header,
                     )
+                    await self._cache.store(
+                        request,
+                        provider=provider.config.id,
+                        content=generation.content,
+                    )
+                    return response
             if self._over_budget(started):
                 break
 
@@ -163,6 +191,7 @@ class InferenceService:
         attempts: int,
         started: float,
         initial_provider: str,
+        cache_status: CacheHeader,
     ) -> ChatCompletionResponse:
         latency_ms = round(elapsed_ms(started), 2)
         fallback_used = provider.config.id != initial_provider
@@ -186,6 +215,7 @@ class InferenceService:
             attempts=attempts,
             latency_ms=latency_ms,
             fallback_used=fallback_used,
+            cache_status=cache_status,
             content=generation.content,
         )
 
